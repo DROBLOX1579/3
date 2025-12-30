@@ -1,0 +1,97 @@
+name: Build Fabric Mod (ONE FILE WORKING)
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: 21
+          distribution: temurin
+
+      - name: Create Fabric Mod Project
+        run: |
+          mkdir -p src/main/resources
+          mkdir -p gradle/wrapper
+
+          # settings.gradle (สำคัญมาก)
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  maven {
+                      name = "Fabric"
+                      url = "https://maven.fabricmc.net/"
+                  }
+                  gradlePluginPortal()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "onefile-mod"
+          EOF
+
+          # gradle.properties
+          cat > gradle.properties <<'EOF'
+          org.gradle.jvmargs=-Xmx2G
+          EOF
+
+          # build.gradle
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'fabric-loom' version '1.7.3'
+          }
+
+          group = 'com.example'
+          version = '1.0.0'
+
+          repositories {
+              mavenCentral()
+              maven { url = "https://maven.fabricmc.net/" }
+          }
+
+          dependencies {
+              minecraft "com.mojang:minecraft:1.21.1"
+              mappings "net.fabricmc:yarn:1.21.1+build.1:v2"
+              modImplementation "net.fabricmc:fabric-loader:0.15.11"
+          }
+
+          java {
+              toolchain.languageVersion = JavaLanguageVersion.of(21)
+          }
+          EOF
+
+          # fabric.mod.json
+          cat > src/main/resources/fabric.mod.json <<'EOF'
+          {
+            "schemaVersion": 1,
+            "id": "onefilemod",
+            "version": "1.0.0",
+            "name": "One File Mod",
+            "description": "Fabric mod built from a single GitHub Actions file",
+            "authors": ["You"],
+            "environment": "*",
+            "entrypoints": {},
+            "depends": {
+              "fabricloader": ">=0.15.0",
+              "minecraft": "1.21.1"
+            }
+          }
+          EOF
+
+          # Install Gradle + generate wrapper
+          curl -L https://services.gradle.org/distributions/gradle-8.8-bin.zip -o gradle.zip
+          unzip -q gradle.zip
+          export PATH=$PWD/gradle-8.8/bin:$PATH
+          gradle wrapper
+
+      - name: Build Mod
+        run: ./gradlew build
+
+      - name: Upload Jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: mod-jar
+          path: build/libs/*.jar
